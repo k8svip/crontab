@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/k8svip/crontab/master"
+	"github.com/k8svip/crontab/worker"
 	"runtime"
 	"time"
 )
@@ -20,7 +20,7 @@ var (
 // 解析命令行参数
 func initArgs() {
 
-	flag.StringVar(&confFile, "config", "./master.json", "指定master.json")
+	flag.StringVar(&confFile, "config", "./worker.json", "指定worker.json")
 	flag.Parse()
 }
 
@@ -36,23 +36,23 @@ func main() {
 	initEnv()
 
 	// 加载配置
-	if err = master.InitConfig(confFile); err != nil {
+	if err = worker.InitConfig(confFile); err != nil {
 		goto ERR
 	}
 
-	// 任务管理器：启动JobMgr服务，因为ApiServer服务需要 调用JobMgr服务
-	if err = master.InitJobMgr(); err != nil {
+	// 启动调度器
+	if err = worker.InitScheduler();err != nil {
 		goto ERR
 	}
 
-	//启动Api HTTP服务
-	if err = master.InitApiServer(); err != nil {
+	// 初始化任务管理器
+	if err = worker.InitJobMgr();err != nil {
 		goto ERR
-	}
 
+	}
 	//正常退出
 	for {
-		time.Sleep(1* time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	return
