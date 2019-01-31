@@ -40,6 +40,16 @@ func main() {
 		goto ERR
 	}
 
+	// 初始化服务发现模块
+	if err = master.InitWorkerMgr();err != nil {
+		goto ERR
+	}
+
+	// 初始化日志管理器；
+	if err = master.InitLogMgr();err != nil {
+		goto ERR
+	}
+
 	// 任务管理器：启动JobMgr服务，因为ApiServer服务需要 调用JobMgr服务
 	if err = master.InitJobMgr(); err != nil {
 		goto ERR
