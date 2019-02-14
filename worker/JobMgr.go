@@ -34,7 +34,7 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 		jobName            string
 		jobEvent           *common.JobEvent
 	)
-	//1. get一下/cron/jobs/目录下的所有任务；并且获知当集群的revision
+	//1. get一下/cron/jobs/目录下的所有任务；并且获知当前集群的revision
 	if getResp, err = jobMgr.kv.Get(context.TODO(), common.JOB_SAVE_DIR, clientv3.WithPrefix()); err != nil {
 		return
 	}
@@ -90,10 +90,6 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 //监听任务强杀通知
 func (jobMgr *JobMgr) watchKiller() {
 	var (
-		//getResp            *clientv3.GetResponse
-		//kvpair             *mvccpb.KeyValue
-		//job                *common.Job
-		//watchStartRevision int64
 		waitChan   clientv3.WatchChan
 		watchResp  clientv3.WatchResponse
 		watchEvent *clientv3.Event

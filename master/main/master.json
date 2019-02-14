@@ -17,7 +17,6 @@
   "web页面的根目录": "静态页面，前后端分离开发",
   "webroot": "./webroot",
 
-
   "mongodb地址":"采用mongodb URI",
   "mongodbUri": "mongodb://100.73.18.80:27017",
 

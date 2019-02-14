@@ -148,7 +148,7 @@ func (scheduler *Scheduler) scheduleLoop() {
 		scheduleTimer *time.Timer
 		jobResult     *common.JobExecuteResult
 	)
-	// 初始化一次(1秒)
+	// 初始化一次，得到下次的执行时间；也里是1秒，因为len(scheduler.jobPlanTable)是0，还没有值；
 	scheduleAfter = scheduler.TrySchedule()
 
 	//调度的延迟定时器

@@ -152,11 +152,6 @@ ERR:
 	}
 }
 
-var (
-	// 单例对象
-	G_apiServer *ApiServer
-)
-
 // 获取健康worker节点列表
 func handleWorkerList(resp http.ResponseWriter, req *http.Request) {
 	var (
@@ -226,14 +221,19 @@ ERR:
 	}
 }
 
+var (
+	// 单例对象
+	G_apiServer *ApiServer
+)
+
 // 初始化服务
 func InitApiServer() (err error) {
 	var (
 		mux           *http.ServeMux
 		listen        net.Listener
 		httpServer    *http.Server
-		staticDir     http.Dir
-		staticHandler http.Handler
+		staticDir     http.Dir // 静态文件的根目录
+		staticHandler http.Handler //静态文件的HTTP回调
 	)
 
 	// 配置路由
@@ -254,7 +254,7 @@ func InitApiServer() (err error) {
 	mux.Handle("/", http.StripPrefix("/", staticHandler)) // ./webroot/index.html
 
 	// 启动TCP监听
-	if listen, err = net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPOrt)); err != nil {
+	if listen, err = net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPort)); err != nil {
 		return
 	}
 

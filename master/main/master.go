@@ -69,5 +69,4 @@ func main() {
 
 ERR:
 	fmt.Println(err)
-
 }

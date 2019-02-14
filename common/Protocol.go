@@ -90,6 +90,11 @@ func BuildResponse(errno int, msg string, data interface{}) (resp []byte, err er
 	response.Errno = errno
 	response.Msg = msg
 	response.Data = data
+	//response = Response{
+	//	Errno:errno,
+	//	Msg: msg,
+	//	Data:data,
+	//}
 
 	// 2. 序列化json
 
