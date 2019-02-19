@@ -13,8 +13,8 @@
     <div class="row">
         <div class="col-md-12">
             <div class="page-header">
-                <h1>管理后台
-                    <small>分布式Crontab</small>
+                <h1>xxxxx
+                    <small>xxxxx</small>
                 </h1>
             </div>
         </div>
@@ -24,7 +24,9 @@
     <div class="row">
         <div class="col-md-12">
             <div type="button" class="btn btn-primary" id="new-job">新建任务</div>
-            <div type="button" class="btn btn-success" id="list-worker">worker节点</div>
+            <div type="button" class="btn btn-success" id="list-worker">节点状态</div>
+            <div type="button" class="btn btn-success" id="new-worker-group">新建节点分组</div>
+            <div type="button" class="btn btn-success" id="list-worker-group">节点分组信息</div>
         </div>
     </div>
 
@@ -36,6 +38,7 @@
                     <table id="job-list" class="table table-striped">
                         <thead>
                         <tr>
+                            <th>所属APPID</th>
                             <th>任务名称</th>
                             <th>shell命令</th>
                             <th>cron表达式</th>
@@ -52,6 +55,65 @@
     </div>
 </div>
 
+<!--节点分组信息-->
+<div id="list-worker-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">所有分组节点信息</h4>
+            </div>
+            <div class="modal-body">
+                <table id="worker-group-list" class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th>任务分组信息</th>
+                        <th>可运行任务的列表</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- worker分组管理modal -->
+<div id="worker-group-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">worker分组管理</h4>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="from-group">
+                        <label for="worker-group-name">Worker组名</label>
+                        <input type="text" class="form-control" id="worker-group-name" placeholder="以APPID名称做为分组名">
+                    </div>
+                    <div class="from-group">
+                        <label for="worker-group-ips">Worker组IPs</label>
+                        <input type="text" class="form-control" id="worker-group-ips" placeholder="多个IP以逗号分隔，中间不能有空格">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="save-worker-group">保存</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+
 <!--position:fixed-->
 <div id="edit-modal" class="modal fade" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
@@ -63,6 +125,11 @@
             </div>
             <div class="modal-body">
                 <form>
+                    <div class="from-group">
+                        <label for="edit-appid">所属APPID</label>
+                        <input type="text" class="form-control" id="edit-appid" placeholder="所属APPID">
+                    </div>
+
                     <div class="from-group">
                         <label for="edit-name">任务名称</label>
                         <input type="text" class="form-control" id="edit-name" placeholder="任务名称">
@@ -99,6 +166,9 @@
                 <table id="log-list" class="table table-striped">
                     <thead>
                     <tr>
+                        <th>所属APPID</th>
+                        <th>任务名称</th>
+                        <th>任务运行机器</th>
                         <th>shell命令</th>
                         <th>错误原因</th>
                         <th>脚本输出</th>
@@ -180,6 +250,7 @@
         $("#job-list").on("click", ".edit-job", function (event) {
             // console.log("编辑")
             // 取当前job的信息，赋值给模态框的input
+            $('#edit-appid').val($(this).parents('tr').children('.job-jobGroup').text())
             $('#edit-name').val($(this).parents('tr').children('.job-name').text())
             $('#edit-command').val($(this).parents('tr').children('.job-command').text())
             $('#edit-cronExpr').val($(this).parents('tr').children('.job-cronExpr').text())
@@ -188,13 +259,54 @@
         })
 
         $("#job-list").on("click", ".delete-job", function (event) {
-            //console.log("删除")
-            var jobName = $(this).parents("tr").children(".job-name").text()
+
+            var deleteInfo = {
+                name: $(this).parents("tr").children(".job-name").text(),
+                jobGroup:$(this).parents("tr").children(".job-jobGroup").text()
+            }
+
             $.ajax({
                 url: '/job/delete',
                 type: 'post',
                 dataType: 'json',
-                data: {name: jobName},
+                data: {deleteInfo: JSON.stringify(deleteInfo)},
+                complete: function () {
+                    window.location.reload()
+                }
+            })
+        })
+
+        $("#job-list").on("click", ".enable-job", function (event) {
+            // 激活任务
+
+            var enableInfo = {
+                name: $(this).parents("tr").children(".job-name").text(),
+                jobGroup:$(this).parents("tr").children(".job-jobGroup").text()
+            }
+
+            $.ajax({
+                url: '/job/enable',
+                type: 'post',
+                dataType: 'json',
+                data: {enableInfo: JSON.stringify(enableInfo)},
+                complete: function () {
+                    window.location.reload()
+                }
+            })
+        })
+
+        $("#job-list").on("click", ".disable-job", function (enent) {
+            // 停止任务
+
+            var disableInfo = {
+                name: $(this).parents("tr").children(".job-name").text(),
+                jobGroup:$(this).parents("tr").children(".job-jobGroup").text()
+            }
+            $.ajax({
+                url: '/job/disable',
+                type: 'post',
+                dataType: 'json',
+                data: {disableInfo: JSON.stringify(disableInfo)},
                 complete: function () {
                     window.location.reload()
                 }
@@ -202,12 +314,15 @@
         })
 
         $("#job-list").on("click", ".kill-job", function (event) {
-            var jobName = $(this).parents("tr").children(".job-name").text()
+            var killInfo = {
+                name: $(this).parents("tr").children(".job-name").text(),
+                jobGroup:$(this).parents("tr").children(".job-jobGroup").text()
+            }
             $.ajax({
                 url: '/job/kill',
                 type: 'post',
                 dataType: 'json',
-                data: {name: jobName},
+                data: {killInfo: JSON.stringify(killInfo)},
                 complete: function () {
                     window.location.reload()
                 }
@@ -217,16 +332,38 @@
         // 保存job
         $('#save-job').on('click', function () {
             var jobInfo = {
+
                 name: $('#edit-name').val(),
                 command: $('#edit-command').val(),
-                cronExpr: $('#edit-cronExpr').val()
+                cronExpr: $('#edit-cronExpr').val(),
+                // 无论修改还是新增job，默认都是未启动状态；
+                jobStatus: 0,
+                jobGroup:$('#edit-appid').val()
             }
+            console.log(jobInfo)
             $.ajax({
                 url: '/job/save',
                 type: 'post',
                 dataType: 'json',
                 data: {job: JSON.stringify(jobInfo)},
                 complete: function () {
+                   window.location.reload()
+                }
+            })
+        })
+
+        $("#save-worker-group").on('click', function () {
+            var groupInfo = {
+                groupName: $('#worker-group-name').val(),
+                groupIps: $('#worker-group-ips').val()
+            }
+
+            $.ajax({
+                url: '/worker/group',
+                type: 'post',
+                dateType: 'json',
+                data:{groupName:JSON.stringify(groupInfo)},
+                complete:function () {
                     window.location.reload()
                 }
             })
@@ -234,6 +371,7 @@
 
         //新建任务
         $('#new-job').on('click', function () {
+            $('#edit-appid').val("")
             $('#edit-name').val("")
             $('#edit-command').val("")
             $('#edit-cronExpr').val("")
@@ -241,17 +379,27 @@
 
         })
 
+        // 新建worker分组
+        $("#new-worker-group").on('click',function () {
+            $('#worker-group-name').val("")
+            $('#worker-group-ips').val("")
+            $('#worker-group-modal').modal('show')
+        })
+
         // 查看任务日志
         $("#job-list").on("click", ".log-job", function (event) {
             // 清空日志列表
             $('#log-list tbody').empty()
             // 获取任务名
-            var jobName = $(this).parents('tr').children('.job-name').text()
+            var logJobInfo = {
+                jobName: $(this).parents('tr').children('.job-name').text(),
+                jobGroup: $(this).parents('tr').children('.job-jobGroup').text()
+            }
             // 请求/job/log接口
             $.ajax({
                 url: "/job/log",
                 dataType: 'json',
-                data: {name: jobName},
+                data:{logJobInfo: JSON.stringify(logJobInfo)},
                 success: function (resp) {
                     if (resp.errno != 0) {
                         return
@@ -261,6 +409,9 @@
                     for (var i = 0; i < logList.length; ++i) {
                         var log = logList[i]
                         var tr = $('<tr>')
+                        tr.append($('<td>').html(log.jobGroup))
+                        tr.append($('<td>').html(log.jobName))
+                        tr.append($('<td>').html(log.jobExecutingIP))
                         tr.append($('<td>').html(log.command))
                         tr.append($('<td>').html(log.err))
                         tr.append($('<td>').html(log.output))
@@ -306,6 +457,40 @@
             $('#worker-modal').modal('show')
         })
 
+        // 节点分组信息按钮
+        $('#list-worker-group').on('click', function () {
+            // 清空模态窗
+            $('#worker-group-list tbody').empty()
+
+            //拉取节点
+            $.ajax({
+                url:"/worker/grouplist",
+                dataType: 'json',
+                success:function (resp) {
+                    if(resp.errno!=0){
+                        return
+                    }
+                    var workerGroupList = resp.data
+                    console.log(workerGroupList)
+
+                    // 遍历每个IP,添加到模态框的table中
+                    for(var i=0;i<workerGroupList.length;++i){
+
+                        var groupName = workerGroupList[i].groupName
+                        var groupIps = workerGroupList[i].groupIps
+                        var tr=$('<tr>')
+                        tr.append($("<td>").html(groupName))
+                        tr.append($("<td>").html(groupIps))
+                        $('#worker-group-list tbody').append(tr)
+
+                    }
+                }
+            })
+
+            // 弹出模态窗
+            $('#list-worker-modal').modal('show')
+        })
+
         // 2. 定义一个函数，用于刷新任务列表
         function rebuildJobList() {
             $.ajax({
@@ -322,11 +507,19 @@
                     // 遍历任务，填充table
                     for (var i = 0; i < jobList.length; ++i) {
                         var job = jobList[i];
+                        var status = job.jobStatus
+                        if (status == 1){
+                            var statusInfo =  '<button class="btn btn-success disable-job">停止</button>'
+                        }else{
+                            var statusInfo =  '<button class="btn btn-danger enable-job">启动</button>'
+                        }
                         var tr = $("<tr>")
+                        tr.append($('<td class="job-jobGroup">').html(job.jobGroup))
                         tr.append($('<td class="job-name">').html(job.name))
                         tr.append($('<td class="job-command">').html(job.command))
                         tr.append($('<td class="job-cronExpr">').html(job.cronExpr))
                         var toolbar = $('<div class="btn-toolbar">')
+                            .append(statusInfo)
                             .append('<button class="btn btn-info edit-job">编辑</button>')
                             .append('<button class="btn btn-danger delete-job">删除</button>')
                             .append('<button class="btn btn-warning kill-job">强杀</button>')

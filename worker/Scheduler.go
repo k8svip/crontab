@@ -22,8 +22,8 @@ var (
 func (scheduler *Scheduler) handleJobEvent(jobEvent *common.JobEvent) {
 	var (
 		jobSchedulePlan *common.JobSchedulePlan
-		jobExecuteInfo *common.JobExecuteInfo
-		jobExecuting bool
+		jobExecuteInfo  *common.JobExecuteInfo
+		jobExecuting    bool
 		jobExisted      bool
 		err             error
 	)
@@ -39,8 +39,8 @@ func (scheduler *Scheduler) handleJobEvent(jobEvent *common.JobEvent) {
 			delete(scheduler.jobPlanTable, jobEvent.Job.Name)
 		}
 	case common.JOB_EVENT_KILL: // 强杀任务事件
-	// 取消掉command执行；判断任务是否在执行中
-		if jobExecuteInfo,jobExecuting = scheduler.jobExecutingTable[jobEvent.Job.Name];jobExecuting{
+		// 取消掉command执行；判断任务是否在执行中
+		if jobExecuteInfo, jobExecuting = scheduler.jobExecutingTable[jobEvent.Job.Name]; jobExecuting {
 			jobExecuteInfo.CancelFunc() // 触发command杀死shell子进程，任务得到退出；
 		}
 	}
@@ -49,17 +49,35 @@ func (scheduler *Scheduler) handleJobEvent(jobEvent *common.JobEvent) {
 // 尝试执行任务
 func (scheduler *Scheduler) TryStartJob(jobPlan *common.JobSchedulePlan) {
 	var (
-		jobExecuteInfo *common.JobExecuteInfo
-		jobExecuting   bool
+		jobExecuteInfo          *common.JobExecuteInfo
+		jobExecuting            bool
+		localIPCheckWithGroupIP string
+		err                     error
+		result                  bool
 	)
 	// 调度和执行是两件事情
 	// 调度就是定期的检查哪些任务过期了，这就是调度，当我们发现一个过期任务时，之后要执行它，这叫执行；
 	// 执行的任务有可能运行很久，有可能我们每秒执行一个任务，但这个任务要跑1分钟，哪么1分钟会调度60次，但是呢只能执行一次，因为这个任务一直没有退出，所以我们只能执行一次；防止并发，
 	// 所以这里的函数名叫tryStartJob，尝试启动一个任务，所以我们需要记录一个状态，表时任务正在执行中，所以我们需要定义一个变量任务执行表；
-
 	// 如果任务正在执行，跳过本次调度，
+
+	// 判断任务状态，是否加入执行列表中；
+	if jobPlan.Job.JobStatus == 0 {
+		delete(scheduler.jobExecutingTable, jobPlan.Job.Name)
+		return
+	}
+	if localIPCheckWithGroupIP, err = common.GetLocalIPCheck(); err != nil {
+		return
+	}
+
+	fmt.Println(localIPCheckWithGroupIP)
+
+	if result = G_checkGroupMgr.BaseGroupCheckLoclIP(jobPlan.Job.JobGroup, localIPCheckWithGroupIP); result == false {
+		return
+	}
+
 	if jobExecuteInfo, jobExecuting = scheduler.jobExecutingTable[jobPlan.Job.Name]; jobExecuting {
-		fmt.Println("尚未退出，跳过此次执行，", jobPlan.Job.Name)
+		// fmt.Println("尚未退出，跳过此次执行，", jobPlan.Job.Name)
 		return
 	}
 
@@ -70,9 +88,9 @@ func (scheduler *Scheduler) TryStartJob(jobPlan *common.JobSchedulePlan) {
 	scheduler.jobExecutingTable[jobPlan.Job.Name] = jobExecuteInfo
 
 	// 执行任务
-	fmt.Println("执行任务：",jobExecuteInfo.Job.Name, jobExecuteInfo.PlanTime,jobExecuteInfo.RealTime)
-	G_executor.ExecuteJob(jobExecuteInfo)
 
+	fmt.Println("执行任务：", jobExecuteInfo.Job.Name, jobExecuteInfo.PlanTime, jobExecuteInfo.RealTime)
+	G_executor.ExecuteJob(jobExecuteInfo)
 
 }
 
@@ -111,33 +129,41 @@ func (scheduler *Scheduler) TrySchedule() (scheduleAfter time.Duration) {
 }
 
 // 处理任务结果
-func (scheduler *Scheduler)handleJobResult(result *common.JobExecuteResult){
+func (scheduler *Scheduler) handleJobResult(result *common.JobExecuteResult) {
 	var (
-		jobLog *common.JobLog
+		jobLog  *common.JobLog
+		localIP string
+		err     error
 	)
 	// 删除执行状态
-	delete(scheduler.jobExecutingTable,result.ExecuteInfo.Job.Name)
+	delete(scheduler.jobExecutingTable, result.ExecuteInfo.Job.Name)
+
+	if localIP, err = common.GetLocalIPCheck(); err != nil {
+		return
+	}
 
 	// 生成执行日志
-	if result.Err != common.ERR_LOCK_ALREADY_REQUIRED{
+	if result.Err != common.ERR_LOCK_ALREADY_REQUIRED {
 		jobLog = &common.JobLog{
-			JobName:result.ExecuteInfo.Job.Name,
-			Command:result.ExecuteInfo.Job.Command,
-			Output:string(result.Output),
-			PlanTime: result.ExecuteInfo.PlanTime.UnixNano()/1000/1000,
-			ScheduleTime:result.ExecuteInfo.RealTime.UnixNano()/1000/1000,
-			StartTime:result.StartTime.UnixNano()/1000/1000,
-			EndTime:result.EndTime.UnixNano()/1000/1000,
+			JobGroup:       result.ExecuteInfo.Job.JobGroup,
+			JobExecutingIP: localIP,
+			JobName:        result.ExecuteInfo.Job.Name,
+			Command:        result.ExecuteInfo.Job.Command,
+			Output:         string(result.Output),
+			PlanTime:       result.ExecuteInfo.PlanTime.UnixNano() / 1000 / 1000,
+			ScheduleTime:   result.ExecuteInfo.RealTime.UnixNano() / 1000 / 1000,
+			StartTime:      result.StartTime.UnixNano() / 1000 / 1000,
+			EndTime:        result.EndTime.UnixNano() / 1000 / 1000,
 		}
 		if result.Err != nil {
 			jobLog.Err = result.Err.Error()
-		}else{
+		} else {
 			jobLog.Err = ""
 		}
 		// TODO: 存储到mogodb;
 		G_logSink.Append(jobLog)
 	}
-	fmt.Println("任务执行完成：", result.ExecuteInfo.Job.Name,string(result.Output),result.Err)
+	fmt.Println("任务执行完成：", result.ExecuteInfo.Job.Name, string(result.Output), result.Err)
 }
 
 // 调度协程

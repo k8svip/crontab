@@ -24,7 +24,10 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 			output  []byte
 			result  *common.JobExecuteResult
 			jobLock *JobLock
+
 		)
+
+
 		//任务结果初始化
 		result = &common.JobExecuteResult{
 			ExecuteInfo: info,
@@ -52,7 +55,7 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 			// 上锁成功后，重置任务启动时间
 			result.StartTime = time.Now()
 
-			// 执行shell命令
+			// 执行任务
 			cmd = exec.CommandContext(info.CancelCtx, "/bin/bash", "-c", info.Job.Command)
 
 			// 执行并捕获输出
@@ -62,7 +65,6 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 			result.EndTime = time.Now()
 			result.Output = output
 			result.Err = err
-
 
 		}
 		// 把任务执行完成后，把执行的结果返回给Scheduler, Scheduler会从executingTable表中删除掉执行记录

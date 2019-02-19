@@ -3,6 +3,7 @@ package master
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/k8svip/crontab/common"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
@@ -61,10 +62,13 @@ func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 		jobValue  []byte
 		putResp   *clientv3.PutResponse
 		oldJobObj common.Job
+		jobKeyInit string
 	)
 
+
 	// etcd的保存key
-	jobKey = common.JOB_SAVE_DIR + job.Name
+	jobKeyInit = common.KeyJoin([]string{job.JobGroup,job.Name}, "/")
+	jobKey = common.JOB_SAVE_DIR + jobKeyInit
 
 	// 任务信息json
 	if jobValue, err = json.Marshal(job); err != nil {
@@ -73,6 +77,7 @@ func (jobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 
 	// 保存到etcd
 	if putResp, err = jobMgr.kv.Put(context.TODO(), jobKey, string(jobValue), clientv3.WithPrevKV()); err != nil {
+		fmt.Println("出错了")
 		return
 	}
 
@@ -109,6 +114,86 @@ func (jobMgr *JobMgr) DeleteJob(name string) (oldJob *common.Job, err error) {
 	if len(delResp.PrevKvs) != 0 {
 		// 解析一下旧值，返回它
 		if err = json.Unmarshal(delResp.PrevKvs[0].Value, &oldJobObj); err != nil {
+			err = nil
+			return
+		}
+		oldJob = &oldJobObj
+	}
+
+	return
+}
+
+func (jobMgr *JobMgr) EnableJob(name string) (oldJob *common.Job, err error) {
+	var (
+		jobKey    string
+		putResp   *clientv3.PutResponse
+		getResp   *clientv3.GetResponse
+		oldJobObj common.Job
+		jobValue []byte
+	)
+
+	jobKey = common.JOB_SAVE_DIR + name
+	// 获取key的value值
+	if getResp, err = jobMgr.kv.Get(context.TODO(), jobKey);err != nil {
+		return
+	}
+
+	err = json.Unmarshal(getResp.Kvs[0].Value, &oldJobObj)
+	oldJobObj.JobStatus = 1
+
+	if jobValue, err = json.Marshal(oldJobObj); err != nil {
+		return
+	}
+	// 保存到etcd
+	if putResp, err = jobMgr.kv.Put(context.TODO(), jobKey, string(jobValue), clientv3.WithPrevKV()); err != nil {
+		fmt.Println("出错了")
+		return
+	}
+
+	//如果是更新，那么就返回旧值
+	if putResp.PrevKv != nil {
+		// 对旧值进行反序列化
+		if err = json.Unmarshal(putResp.PrevKv.Value, &oldJobObj); err != nil {
+			err = nil
+			return
+		}
+		oldJob = &oldJobObj
+	}
+
+	return
+}
+
+func (jobMgr *JobMgr) DisableJob(name string) (oldJob *common.Job, err error) {
+	var (
+		jobKey    string
+		putResp   *clientv3.PutResponse
+		getResp   *clientv3.GetResponse
+		oldJobObj common.Job
+		jobValue []byte
+	)
+
+	jobKey = common.JOB_SAVE_DIR + name
+	// 获取key的value值
+	if getResp, err = jobMgr.kv.Get(context.TODO(), jobKey);err != nil {
+		return
+	}
+
+	err = json.Unmarshal(getResp.Kvs[0].Value, &oldJobObj)
+	oldJobObj.JobStatus = 0
+
+	if jobValue, err = json.Marshal(oldJobObj); err != nil {
+		return
+	}
+	// 保存到etcd
+	if putResp, err = jobMgr.kv.Put(context.TODO(), jobKey, string(jobValue), clientv3.WithPrevKV()); err != nil {
+		fmt.Println("出错了")
+		return
+	}
+
+	//如果是更新，那么就返回旧值
+	if putResp.PrevKv != nil {
+		// 对旧值进行反序列化
+		if err = json.Unmarshal(putResp.PrevKv.Value, &oldJobObj); err != nil {
 			err = nil
 			return
 		}

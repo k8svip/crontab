@@ -42,9 +42,11 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 	for _, kvpair = range getResp.Kvs {
 		// 反序列化josn得到Job
 		if job, err = common.UnpackJob(kvpair.Value); err == nil {
+
 			jobEvent = common.BuildJobEvent(common.JOB_EVENT_SAVE, job)
 			// TODO: 是把这个job同步给scheduler（调度协程）
 			G_scheduler.PushJobEvent(jobEvent)
+
 		}
 	}
 
@@ -77,8 +79,11 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 					// TODO: 推给scheduler
 				}
 				// TODO: 变化推给scheduler
+
 				G_scheduler.PushJobEvent(jobEvent)
+				fmt.Println(jobEvent.Job.JobStatus)
 				fmt.Println(*jobEvent)
+
 			}
 		}
 

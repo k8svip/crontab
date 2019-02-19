@@ -4,15 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gorhill/cronexpr"
+	"net"
 	"strings"
 	"time"
 )
 
 // 定时任务
 type Job struct {
-	Name     string `json:"name"`     // 任务名
-	Command  string `json:"command"`  // shll命令
-	CronExpr string `json:"cronExpr"` // cron 表达式
+	Name      string `json:"name"`      // 任务名
+	Command   string `json:"command"`   // shll命令
+	CronExpr  string `json:"cronExpr"`  // cron 表达式
+	JobStatus int    `json:"jobStatus"` // 任务是否开启
+	JobGroup  string `json:"jobGroup"`  // job所属组
+}
+
+type GroupInfo struct {
+	GroupName string `json:"groupName"` // 组名
+	GroupIps  string `json:"groupIps"`  // 组IP信息
 }
 
 // 任务调度计划
@@ -55,14 +63,16 @@ type JobExecuteResult struct {
 
 // 任务执行日志
 type JobLog struct {
-	JobName      string `json:"jobName" bson:"jobName"`           // 任务名
-	Command      string `json:"command" bson:"command"`           // 脚本命令
-	Err          string `json:"err" bson:"err"`                   // 错误原因
-	Output       string `json:"output" bson:"output"`             //脚本输出
-	PlanTime     int64  `json:"planTime" bson:"planTime"`         //计划开始时间
-	ScheduleTime int64  `json:"scheduleTime" bson:"scheduleTime"` //任务执行开始时间
-	StartTime    int64  `json:"startTime" bson:"startTime"`       //任务开始时间
-	EndTime      int64  `json:"endTime" bson:"endTime"`           //任务执行结束时间
+	JobGroup       string `json:"jobGroup" bson:"jobGroup"`
+	JobExecutingIP string `json:"jobExecutingIP" bson:"jobExecutingIP"`
+	JobName        string `json:"jobName" bson:"jobName"`           // 任务名
+	Command        string `json:"command" bson:"command"`           // 脚本命令
+	Err            string `json:"err" bson:"err"`                   // 错误原因
+	Output         string `json:"output" bson:"output"`             //脚本输出
+	PlanTime       int64  `json:"planTime" bson:"planTime"`         //计划开始时间
+	ScheduleTime   int64  `json:"scheduleTime" bson:"scheduleTime"` //任务执行开始时间
+	StartTime      int64  `json:"startTime" bson:"startTime"`       //任务开始时间
+	EndTime        int64  `json:"endTime" bson:"endTime"`           //任务执行结束时间
 }
 
 // 日志批次
@@ -72,7 +82,8 @@ type LogBatch struct {
 
 // 任务日志过滤条件
 type JobLogFilter struct {
-	JobName string `bson:"jobName"`
+	JobGroup string `bson:"jobGroup"`
+	JobName  string `bson:"jobName"`
 }
 
 // 任务日志排序条件
@@ -90,11 +101,6 @@ func BuildResponse(errno int, msg string, data interface{}) (resp []byte, err er
 	response.Errno = errno
 	response.Msg = msg
 	response.Data = data
-	//response = Response{
-	//	Errno:errno,
-	//	Msg: msg,
-	//	Data:data,
-	//}
 
 	// 2. 序列化json
 
@@ -113,6 +119,19 @@ func UnpackJob(value []byte) (ret *Job, err error) {
 		return
 	}
 	ret = job
+	return
+}
+
+// 反序列化Job
+func UnpackGroupInfo(value []byte) (ret *GroupInfo, err error) {
+	var (
+		groupInfo *GroupInfo
+	)
+	groupInfo = &GroupInfo{}
+	if err = json.Unmarshal(value, groupInfo); err != nil {
+		return
+	}
+	ret = groupInfo
 	return
 }
 
@@ -167,8 +186,45 @@ func BuildJobExecuteInfo(jobSchedulePlan *JobSchedulePlan) (jobExecuteInfo *JobE
 	return
 }
 
-
 // 提取worker的IP
-func ExtractWorkerIP(regKey string)(string){
-	return strings.TrimPrefix(regKey,JOB_WORKER_DIR)
+func ExtractWorkerIP(regKey string) (string) {
+	return strings.TrimPrefix(regKey, JOB_WORKER_DIR)
+}
+
+func ExtractWorkerGroup(regKey string) (string) {
+	return strings.TrimPrefix(regKey, JOB_WORKER_GROUP_DIR)
+}
+
+func KeyJoin(list []string, sep string) (string) {
+	return strings.Join(list, sep)
+}
+
+func GetLocalIPCheck() (ipv4 string, err error) {
+	// 获取所有网卡的
+	var (
+		addrs   []net.Addr
+		addr    net.Addr
+		ipNet   *net.IPNet // IP地址
+		isIpNet bool
+	)
+
+	if addrs, err = net.InterfaceAddrs(); err != nil {
+		return
+	}
+	// 取第一个非lo的网卡IP
+
+	for _, addr = range addrs {
+		// IPv4, ipv6
+		// 这个网络地址是IP地址
+		if ipNet, isIpNet = addr.(*net.IPNet); isIpNet && !ipNet.IP.IsLoopback() {
+			// 跳过ipv6
+			if ipNet.IP.To4() != nil {
+				ipv4 = ipNet.IP.String() // 11.1.1.1
+				return
+			}
+
+		}
+	}
+	err = ERR_NO_LOCAL_IP_FOUND
+	return
 }

@@ -40,6 +40,11 @@ func main() {
 		goto ERR
 	}
 
+	// 判断本地IP是否属于此APPID
+	if err = worker.InitCheckGroupMgr();err != nil {
+		goto ERR
+	}
+
 	// 服务注册
 	if err = worker.InitRegister();err != nil {
 		goto ERR

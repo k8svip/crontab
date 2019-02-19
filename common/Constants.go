@@ -13,6 +13,9 @@ const (
 	// 服务注册目录
 	JOB_WORKER_DIR = "/cron/workers/"
 
+	// worker信息节点注册
+	JOB_WORKER_GROUP_DIR = "/cron/groups/"
+
 	// 保存任务事件
 	JOB_EVENT_SAVE = 1
 

@@ -2,6 +2,7 @@ package master
 
 import (
 	"context"
+	"fmt"
 	"github.com/k8svip/crontab/common"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/mongo/options"
@@ -33,19 +34,22 @@ func InitLogMgr() (err error) {
 }
 
 // 查看任务日志
-func (logMgr *LogMgr) ListLog(name string, skip, limit int) (logArr []*common.JobLog, err error) {
+func (logMgr *LogMgr) ListLog(name *common.JobLog, skip, limit int) (logArr []*common.JobLog, err error) {
 	var (
 		filter  *common.JobLogFilter
 		logSort *common.SortLogByStartTime
 		cursor  mongo.Cursor
 		jobLog *common.JobLog
+
 	)
 
 	// len(logArr)
-	logArr = make([] *common.JobLog,0)
+	//logArr = make([] *common.JobLog,0)
 
 	// 过滤条件
-	filter = &common.JobLogFilter{JobName: name}
+	//filter = &common.JobLogFilter{JobName: name}
+	filter = &common.JobLogFilter{JobName:name.JobName,JobGroup:name.JobGroup}
+	fmt.Println("1:",filter.JobName,"2:",filter.JobGroup)
 
 	// 按照任务时间开始倒排；
 	logSort = &common.SortLogByStartTime{SortOrder: -1}
@@ -59,7 +63,6 @@ func (logMgr *LogMgr) ListLog(name string, skip, limit int) (logArr []*common.Jo
 	// 遍历
 	for cursor.Next(context.TODO()){
 		jobLog = &common.JobLog{}
-
 		// 反序列化bason
 		if err = cursor.Decode(jobLog);err != nil {
 			continue //有日志不合法
